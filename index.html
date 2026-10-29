@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSR Desk</title>
+<meta name="description" content="CSR desk. The current time block, what to do in it, and a heads-up for the next block.">
+<meta name="theme-color" content="#f3efe6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+  :root {
+    --paper: #f3efe6;
+    --sheet: #fcfaf6;
+    --ink: #1b1714;
+    --muted: #5c564e;
+    --line: #e3d8c8;
+    --seal: #9d2c1f;
+    --live: #1c7a3a;
+    --live-bright: #8fdfaa;
+    --sans: "Source Sans 3", "Segoe UI", sans-serif;
+    --display: "Fraunces", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  h1, h2 { text-wrap: balance; margin: 0; }
+  p { text-wrap: pretty; margin: 0; }
+  :focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+  .wrap { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  @media (min-width: 640px) { .wrap { padding: 2.5rem 2rem 4rem; } }
+  .header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 1.5rem; }
+  .kicker { font-size: 1.875rem; line-height: 1; font-family: var(--display); }
+  .clock-col { width: 9rem; }
+  .clock-wrap {
+    filter: drop-shadow(0 1px 1px rgba(48,42,34,.06)) drop-shadow(0 12px 16px rgba(48,42,34,.14));
+  }
+  .clock { display: block; width: 100%; height: auto; overflow: visible; }
+  .date { margin-top: .5rem; text-align: center; font-size: 1rem; line-height: 1; color: var(--muted); white-space: nowrap; }
+  .banner { margin-top: 1.5rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; border-radius: .75rem; background: var(--ink); color: var(--sheet); padding: .75rem 1rem; }
+  .banner button { min-height: 2.75rem; border-radius: .5rem; background: var(--sheet); color: var(--ink); padding: 0 1rem; font-weight: 600; font-size: .875rem; }
+  .rail { margin-top: 1.5rem; display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; }
+  .rail button { min-height: 2.75rem; flex: 0 0 auto; border-radius: .5rem; padding: .5rem .75rem; text-align: left; box-shadow: inset 0 0 0 1px var(--line); background: var(--sheet); }
+  .rail button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); box-shadow: inset 0 0 0 1px var(--ink); }
+  .rail button.past { color: var(--muted); }
+  .rail .win { display: flex; align-items: center; gap: .5rem; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .rail .dot { width: .375rem; height: .375rem; border-radius: 999px; background: var(--seal); }
+  .rail .name { display: block; margin-top: .125rem; font-size: .875rem; font-weight: 600; }
+  .note { margin-top: .5rem; font-size: .875rem; color: var(--muted); }
+  .grid { margin-top: 1rem; display: grid; gap: 1rem; align-items: start; }
+  @media (min-width: 1024px) { .grid { grid-template-columns: minmax(0,1.7fr) minmax(16rem,.85fr); gap: 1.25rem; } .peek { display: none; } .next { position: sticky; top: 1.5rem; } }
+  .card { min-width: 0; border-radius: 1rem; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+  .meter { height: .375rem; background: var(--line); }
+  .meter > span { display: block; height: 100%; background: var(--seal); transition: width .9s linear; }
+  .pad { padding: 1.5rem; }
+  @media (min-width: 640px) { .pad { padding: 2.5rem; } }
+  .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+  .label { font-size: .75rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--seal); }
+  .pill { border-radius: 999px; border: 1px solid color-mix(in srgb, var(--seal) 40%, transparent); padding: .25rem .6rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--seal); }
+  .left { font-size: .875rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .left.hot { color: var(--seal); }
+  h1 { margin-top: 1.25rem; font-family: var(--display); font-size: 2.25rem; line-height: 1; font-weight: 560; }
+  @media (min-width: 640px) { h1 { font-size: 3.75rem; } }
+  .window { margin-top: .75rem; font-size: 1.125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .peek { margin-top: 1rem; border-radius: .75rem; background: var(--paper); padding: .75rem; box-shadow: inset 0 0 0 1px var(--line); }
+  .peek h2 { margin-top: .25rem; font-family: var(--display); font-size: 1.25rem; line-height: 1.2; }
+  .phone { margin-top: 1.5rem; display: flex; align-items: center; gap: .75rem; border-radius: .75rem; padding: .75rem 1rem; }
+  .phone.off { background: var(--seal); color: var(--sheet); }
+  .phone.on { background: var(--ink); color: var(--sheet); }
+  .phone.on .handset { color: var(--live-bright); }
+  .phone .eyebrow { font-size: .75rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+  .phone .say { font-size: 1.125rem; font-weight: 600; line-height: 1.35; }
+  .icon { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; }
+  .icon.sm { width: 1rem; height: 1rem; }
+  .tasks { margin: 2rem 0 0; padding: 0; list-style: none; }
+  .task { display: flex; align-items: flex-start; gap: .25rem; border-radius: .5rem; }
+  .task.dim { opacity: .6; }
+  .check { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; flex: 0 0 auto; }
+  .box { width: 1.25rem; height: 1.25rem; border-radius: .2rem; border: 1px solid var(--line); background: var(--sheet); display: grid; place-items: center; }
+  .box.on { background: var(--ink); border-color: var(--ink); color: var(--sheet); }
+  .task-body { min-width: 0; flex: 1; padding: .65rem 0 .5rem; }
+  @media (min-width: 640px) {
+    .task-body { display: flex; gap: .75rem; }
+    .tag { width: 4rem; flex: 0 0 auto; margin: 0; padding-top: .25rem; }
+  }
+  .tag { display: block; margin-bottom: .25rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .tag.do { color: var(--seal); }
+  .task p { font-size: 1rem; line-height: 1.6; }
+  .task.done p { color: var(--muted); }
+  .mon { margin-right: .5rem; display: inline-block; border-radius: .2rem; background: color-mix(in srgb, var(--seal) 10%, transparent); padding: .1rem .35rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--seal); }
+  .due { margin-top: .25rem; font-size: .875rem; color: var(--muted); }
+  .due.late { font-weight: 600; color: var(--seal); }
+  .tally { margin-top: 1.5rem; font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .exit { margin-top: 1.5rem; border-top: 1px solid var(--line); padding-top: 1.25rem; font-size: 1rem; line-height: 1.6; }
+  .remain { margin-top: .5rem; display: flex; align-items: center; gap: .75rem; }
+  .track { height: .5rem; min-width: 0; flex: 1; overflow: hidden; border-radius: 999px; background: var(--line); }
+  .track > span { display: block; height: 100%; border-radius: 999px; background: var(--ink); transition: width .9s linear; }
+  .remain b { flex: 0 0 auto; font-size: .75rem; font-variant-numeric: tabular-nums; }
+  .next { border-radius: 1rem; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--line); padding: 1.25rem; }
+  .next h2 { margin-top: .75rem; font-family: var(--display); font-size: 1.5rem; line-height: 1.2; font-weight: 560; }
+  .sub { margin-top: .25rem; font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .next-phone { margin-top: .75rem; display: flex; align-items: center; gap: .5rem; font-size: .875rem; font-weight: 600; }
+  .next-phone.restricted { color: var(--seal); }
+  .next-phone.open .handset { color: var(--live); }
+  .mgr { margin-top: .75rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--seal); }
+  .next ul { margin: 1rem 0 0; padding: 0; list-style: none; }
+  .next li { margin-top: .75rem; font-size: .875rem; line-height: 1.6; }
+  .next li.dim { color: var(--muted); }
+  .day { margin-top: 2rem; }
+  .day summary { display: flex; min-height: 2.75rem; align-items: center; justify-content: space-between; font-size: .875rem; font-weight: 600; list-style: none; cursor: pointer; }
+  .day summary::-webkit-details-marker { display: none; }
+  .day summary svg { width: 1rem; height: 1rem; color: var(--muted); transition: transform .2s; }
+  .day[open] summary svg { transform: rotate(180deg); }
+  .day-list { margin-top: .5rem; border-top: 1px solid var(--line); }
+  .day-list button { display: flex; width: 100%; min-height: 2.75rem; align-items: flex-start; gap: .75rem; border-bottom: 1px solid var(--line); padding: .75rem 0; text-align: left; }
+  .mark { margin-top: .5rem; width: .5rem; height: .5rem; border-radius: 999px; background: var(--line); flex: 0 0 auto; }
+  .mark.live { background: var(--seal); }
+  .slot { width: 7rem; flex: 0 0 auto; font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .foot { margin-top: 2rem; font-size: .75rem; color: var(--muted); }
+  .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .meter > span, .track > span { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="sr" id="live" aria-live="polite"></p>
+  <header class="header">
+    <p class="kicker">CSR Desk</p>
+    <div class="clock-col">
+      <div class="clock-wrap" id="face" role="img" aria-label="Eastern time">
+        <svg class="clock" viewBox="0 0 400 400" aria-hidden="true">
+          <defs>
+            <linearGradient id="bezel" x1="18%" y1="0%" x2="82%" y2="100%">
+              <stop offset="0%" stop-color="#f6f4f0"/>
+              <stop offset="42%" stop-color="#c8c3ba"/>
+              <stop offset="74%" stop-color="#8d887f"/>
+              <stop offset="100%" stop-color="#c8c3ba"/>
+            </linearGradient>
+            <radialGradient id="dial" cx="50%" cy="40%" r="68%">
+              <stop offset="0%" stop-color="#fbfaf7"/>
+              <stop offset="100%" stop-color="#f4f1ea"/>
+            </radialGradient>
+            <radialGradient id="crystal" cx="50%" cy="16%" r="58%">
+              <stop offset="0%" stop-color="#fff" stop-opacity="0.22"/>
+              <stop offset="58%" stop-color="#fff" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="vignette" cx="50%" cy="46%" r="64%">
+              <stop offset="68%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0.1"/>
+            </radialGradient>
+          </defs>
+          <circle cx="200" cy="200" r="196" fill="url(#bezel)"/>
+          <circle cx="200" cy="200" r="196" fill="none" stroke="rgba(55,48,38,.28)" stroke-width="1.5"/>
+          <circle cx="200" cy="200" r="184" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.25"/>
+          <circle cx="200" cy="200" r="172" fill="#2a2723"/>
+          <circle cx="200" cy="200" r="160" fill="url(#dial)"/>
+          <circle cx="200" cy="200" r="160" fill="url(#vignette)"/>
+          <circle cx="200" cy="200" r="160" fill="url(#crystal)"/>
+          <g transform="translate(200 200)" id="marks"></g>
+          <g transform="translate(200 200)">
+            <g id="hour"><path fill="#1c1b19" d="M0-70C5.6-66 6.8-54 6.8-16L6.8 12C6.8 21 3.8 25 0 25C-3.8 25-6.8 21-6.8 12L-6.8-16C-6.8-54-5.6-66 0-70Z"/></g>
+            <g id="minute"><path fill="#1c1b19" d="M0-104C4-100 4.4-90 4.4-22L4.4 14C4.4 21 2.4 25 0 25C-2.4 25-4.4 21-4.4 14L-4.4-22C-4.4-90-4-100 0-104Z"/></g>
+            <g id="second">
+              <line x1="0" y1="32" x2="0" y2="-148" stroke="#e23b12" stroke-width="1.35" stroke-linecap="round"/>
+              <circle cx="0" cy="-86" r="8.5" fill="none" stroke="#e23b12" stroke-width="1.35"/>
+              <circle cx="0" cy="28" r="3.6" fill="#e23b12"/>
+            </g>
+            <circle r="8" fill="#1c1b19"/>
+            <circle r="3" fill="#f4f1ea"/>
+          </g>
+        </svg>
+      </div>
+      <p class="date" id="date">Eastern</p>
+    </div>
+  </header>
+  <div id="app"></div>
+</main>
+<script>
+(function () {
+  var TZ = "America/Toronto";
+  var EXIT = "Inbox and voicemail at zero, or every open item has an owner and a deadline.";
+  var TAG = { do: "Do now", resolve: "Resolve", batch: "Batch", park: "Park", note: "Note" };
+  var SHORT = { January:"Jan", February:"Feb", March:"Mar", April:"Apr", May:"May", June:"Jun", July:"Jul", August:"Aug", September:"Sep", October:"Oct", November:"Nov", December:"Dec" };
+  var MIN = function (h, m) { return h * 60 + (m || 0); };
+  var BLOCKS = [
+    { id:"before", start:MIN(0), end:MIN(9,30), progressFrom:MIN(8), window:"Before 9:30", title:"Onboarding review", short:"Open", phone:null, manager:true, tasks:[
+      { id:"before-abeyance", tag:"do", text:"Check the abeyance list. Flag anything overdue." },
+      { id:"before-claims", tag:"do", text:"Export the claims report by insurer.", mondayOnly:true, dueBy:MIN(9) }
+    ]},
+    { id:"morning", start:MIN(9,30), end:MIN(10,30), window:"9:30–10:30", title:"Morning batch", short:"Morning", phone:{mode:"off", label:"No phone."}, tasks:[
+      { id:"morning-clear", tag:"do", text:"Clear overnight voicemail and email. Glance at the claims list for anything stalled. Knock out anything due today." },
+      { id:"morning-resolve", tag:"resolve", text:"By 10:30, every item has an answer: call back now, file with a note, or promise a time." }
+    ]},
+    { id:"midday", start:MIN(10,30), end:MIN(14,30), window:"10:30–2:30", title:"Midday block", short:"Midday", phone:{mode:"finish", label:"Phone on, finish-now only."}, tasks:[
+      { id:"midday-now", tag:"do", text:"ID cards, proof of insurance, claim status, simple changes." },
+      { id:"midday-batch", tag:"batch", text:"60-day renewal emails batched here. Emails and texts outside 30 days go out as heads-up notices." },
+      { id:"midday-park", tag:"park", text:"More than a quick fix (about 2 minutes or more)? Park it with a promised time." },
+      { id:"midday-resolve", tag:"resolve", text:"Triage rule: park longer work to the 2:30–3:30 protected block, where those tasks are batched." }
+    ]},
+    { id:"protected", start:MIN(14,30), end:MIN(15,30), window:"2:30–3:30", title:"Protected block", short:"Protected", phone:{mode:"overflow", label:"Phone to overflow and voicemail."}, tasks:[
+      { id:"protected-renewals", tag:"do", text:"First: renewal calls for policies renewing within 30 days." },
+      { id:"protected-batch", tag:"batch", text:"Then parked work: endorsements, file admin." }
+    ]},
+    { id:"agency", start:MIN(15,30), end:MIN(15,40), window:"3:30–3:40", title:"Agency-bill mini-block", short:"Agency bill", phone:{mode:"on", label:"Phone on."}, tasks:[
+      { id:"agency-remind", tag:"do", text:"Send payment-due reminders on agency-bill accounts. A lapse is the one thing a later call can’t undo." },
+      { id:"agency-note", tag:"note", text:"Call, text, or email, depending on the collections-reminder stage." }
+    ]},
+    { id:"afternoon", start:MIN(15,40), end:MIN(17), window:"3:40–5:00", title:"Afternoon phones", short:"Afternoon", phone:{mode:"finish", label:"Phone back on, finish-now only."}, tasks:[
+      { id:"afternoon-overflow", tag:"do", text:"Clear the overflow." },
+      { id:"afternoon-abeyance", tag:"do", text:"Export abeyance reports before the end of the day." },
+      { id:"afternoon-park", tag:"park", text:"Before you leave, every open item gets an owner and a time." }
+    ]}
+  ];
+  var PHONE = '<svg class="icon handset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  var PHONE_OFF = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" x2="2" y1="2" y2="22"/></svg>';
+  var VOICE = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><line x1="6" x2="18" y1="16" y2="16"/></svg>';
+  var CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+  var previewId = null;
+  var checks = [];
+  var ymd = "";
+  var seen = null;
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&", "<":"<", ">":">", '"':""", "'":"&#39;" }[c];
+    });
+  }
+  function part(parts, type) {
+    for (var i = 0; i < parts.length; i++) if (parts[i].type === type) return parts[i].value;
+    return "";
+  }
+  function readClock(date) {
+    var fmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday:"short", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23", timeZoneName:"short" });
+    var parts = fmt.formatToParts(date);
+    var hour = Number(part(parts, "hour"));
+    var minute = Number(part(parts, "minute"));
+    var second = Number(part(parts, "second"));
+    if (hour === 24) hour = 0;
+    var longDate = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday:"long", month:"long", day:"numeric" }).format(date);
+    var bits = longDate.split(", ");
+    var rest = (bits[1] || "").split(" ");
+    var month = SHORT[rest[0]] || rest[0];
+    var tz = part(parts, "timeZoneName") || "ET";
+    return {
+      ymd: part(parts, "year") + "-" + part(parts, "month") + "-" + part(parts, "day"),
+      weekday: part(parts, "weekday").slice(0, 3),
+      minutes: hour * 60 + minute,
+      seconds: second,
+      hour: hour,
+      minute: minute,
+      timeLabel: (hour % 12 || 12) + ":" + String(minute).padStart(2, "0") + ":" + String(second).padStart(2, "0") + (hour < 12 ? " AM" : " PM"),
+      dateLine: (bits[0] || "") + ", " + month + " " + Number(rest[1]) + " · " + tz
+    };
+  }
+  function opensMonday(day) { return day === "Fri" || day === "Sat" || day === "Sun"; }
+  function nextLabel(day) { return opensMonday(day) ? "Monday" : "Tomorrow"; }
+  function liveFocus(clock) {
+    if (clock.weekday === "Sat" || clock.weekday === "Sun") {
+      return { kind:"weekend", block:null, next:BLOCKS[0], nextWhen:"Monday", blockMonday:false, nextMonday:true };
+    }
+    var index = -1;
+    for (var i = 0; i < BLOCKS.length; i++) {
+      if (clock.minutes >= BLOCKS[i].start && clock.minutes < BLOCKS[i].end) { index = i; break; }
+    }
+    if (index >= 0) {
+      var later = BLOCKS[index + 1] || null;
+      if (later) return { kind:"block", block:BLOCKS[index], next:later, nextWhen:null, blockMonday:clock.weekday==="Mon", nextMonday:clock.weekday==="Mon" };
+      return { kind:"block", block:BLOCKS[index], next:BLOCKS[0], nextWhen:nextLabel(clock.weekday), blockMonday:clock.weekday==="Mon", nextMonday:opensMonday(clock.weekday) };
+    }
+    return { kind:"closed", block:null, next:BLOCKS[0], nextWhen:nextLabel(clock.weekday), blockMonday:false, nextMonday:opensMonday(clock.weekday) };
+  }
+  function focusFor(clock) {
+    if (previewId) {
+      for (var i = 0; i < BLOCKS.length; i++) {
+        if (BLOCKS[i].id === previewId) {
+          var monday = clock.weekday === "Mon";
+          return { kind:"block", block:BLOCKS[i], next:BLOCKS[i+1] || null, nextWhen:null, blockMonday:monday, nextMonday:monday };
+        }
+      }
+    }
+    return liveFocus(clock);
+  }
+  function liveId(clock) {
+    if (clock.weekday === "Sat" || clock.weekday === "Sun") return null;
+    for (var i = 0; i < BLOCKS.length; i++) {
+      if (clock.minutes >= BLOCKS[i].start && clock.minutes < BLOCKS[i].end) return BLOCKS[i].id;
+    }
+    return null;
+  }
+  function until(target, clock) { return (target - clock.minutes) * 60 - clock.seconds; }
+  function span(total) {
+    var sec = Math.max(0, total);
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (sec < 15 * 60) return m + "m " + String(s).padStart(2, "0") + "s";
+    if (h > 0) return m > 0 ? h + "h " + m + "m" : h + "h";
+    return m + "m";
+  }
+  function progress(block, clock) {
+    var origin = block.progressFrom == null ? block.start : block.progressFrom;
+    if (clock.minutes < origin) return 0;
+    var width = (block.end - origin) * 60;
+    if (width <= 0) return 1;
+    var elapsed = (clock.minutes - origin) * 60 + clock.seconds;
+    return Math.max(0, Math.min(1, elapsed / width));
+  }
+  function restricted(mode) { return mode === "off" || mode === "overflow"; }
+  function waitSpan(next) {
+    var index = -1;
+    for (var i = 0; i < BLOCKS.length; i++) if (BLOCKS[i].id === next.id) index = i;
+    var prev = index > 0 ? BLOCKS[index - 1] : null;
+    if (!prev) return Math.max(60, next.start * 60);
+    var origin = prev.progressFrom == null ? prev.start : prev.progressFrom;
+    return Math.max(60, (next.start - origin) * 60);
+  }
+  function phoneIcon(mode, small) {
+    var html = mode === "off" ? PHONE_OFF : mode === "overflow" ? VOICE : PHONE;
+    return small ? html.replace('class="icon', 'class="icon sm') : html;
+  }
+  function load(day) {
+    try {
+      var raw = localStorage.getItem("csr-desk-checks");
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      if (!parsed || parsed.ymd !== day || !Array.isArray(parsed.ids)) return [];
+      return parsed.ids.filter(function (id) { return typeof id === "string"; });
+    } catch (e) { return []; }
+  }
+  function save(day, ids) {
+    localStorage.setItem("csr-desk-checks", JSON.stringify({ ymd: day, ids: ids }));
+  }
+  function actionable(block, monday) {
+    return block.tasks.filter(function (task) { return task.tag !== "note" && (!task.mondayOnly || monday); });
+  }
+
+  var marks = document.getElementById("marks");
+  var tick = "";
+  var nums = "";
+  for (var i = 0; i < 60; i++) {
+    var major = i % 5 === 0;
+    tick += '<line x1="0" y1="' + (major ? -146 : -151) + '" x2="0" y2="-156" transform="rotate(' + (i * 6) + ')" stroke="' + (major ? "#1c1b19" : "rgba(28,27,25,.38)") + '" stroke-width="' + (major ? 1.75 : 1) + '" vector-effect="non-scaling-stroke"/>';
+  }
+  for (var n = 1; n <= 12; n++) {
+    var rad = ((n * 30 - 90) * Math.PI) / 180;
+    nums += '<text x="' + (Math.cos(rad) * 116) + '" y="' + (Math.sin(rad) * 116) + '" fill="#1c1b19" font-size="33" text-anchor="middle" dominant-baseline="central" font-family="Source Sans 3, Segoe UI, sans-serif" font-weight="500">' + n + "</text>";
+  }
+  marks.innerHTML = tick + nums;
+
+  function paintClock(date, clock) {
+    var second = clock.seconds + (reduced ? 0 : date.getMilliseconds() / 1000);
+    var min = clock.minute + second / 60;
+    var hr = (clock.hour % 12) + min / 60;
+    document.getElementById("hour").setAttribute("transform", "rotate(" + (hr * 30) + ")");
+    document.getElementById("minute").setAttribute("transform", "rotate(" + (min * 6) + ")");
+    document.getElementById("second").setAttribute("transform", "rotate(" + (second * 6) + ")");
+    document.getElementById("face").setAttribute("aria-label", clock.timeLabel);
+    document.getElementById("date").textContent = clock.dateLine;
+  }
+
+  function taskHtml(task, monday, interactive, clock, liveNow) {
+    var inactive = !!(task.mondayOnly && !monday);
+    var checkable = interactive && task.tag !== "note" && !inactive;
+    var checked = checks.indexOf(task.id) >= 0;
+    var late = liveNow && monday && task.dueBy != null && !checked && clock.minutes >= task.dueBy;
+    var box = checkable
+      ? '<button class="check" type="button" role="checkbox" aria-checked="' + checked + '" data-id="' + esc(task.id) + '" aria-label="' + esc(task.text) + '"><span class="box' + (checked ? " on" : "") + '">' + (checked ? CHECK : "") + "</span></button>"
+      : '<span class="check" aria-hidden="true"><span class="box"></span></span>';
+    return '<li class="task' + (inactive ? " dim" : "") + (checked ? " done" : "") + '">' + box +
+      '<div class="task-body"><span class="tag' + (task.tag === "do" && !inactive ? " do" : "") + '">' + esc(inactive ? "Mon" : TAG[task.tag]) + "</span><div><p>" +
+      (task.mondayOnly && monday ? '<span class="mon">Mon</span>' : "") + esc(task.text) + "</p>" +
+      (task.dueBy != null ? '<p class="due' + (late ? " late" : "") + '">' + (late ? "This was due before 9:00." : "Due before 9:00.") + "</p>" : "") +
+      "</div></div></li>";
+  }
+
+  function remainHtml(remain, total) {
+    var fraction = Math.min(1, Math.max(0, remain / total));
+    return '<div class="remain"><div class="track" aria-hidden="true"><span style="width:' + (fraction * 100) + '%"></span></div><b>' + esc(span(remain)) + "</b></div>";
+  }
+
+  function render(clock) {
+    var focus = focusFor(clock);
+    var nowId = liveId(clock);
+    var interactive = !previewId && focus.kind === "block";
+    var liveName = nowId ? BLOCKS.filter(function (b) { return b.id === nowId; })[0].title : (clock.weekday === "Sat" || clock.weekday === "Sun" ? "the weekend" : "after close");
+    var html = "";
+    if (previewId && focus.block) {
+      html += '<div class="banner"><p>Previewing ' + esc(focus.block.window) + ". Live desk is " + esc(liveName) + '.</p><button type="button" id="back">Back to now</button></div>';
+    }
+    html += '<nav class="rail" aria-label="Day blocks">';
+    BLOCKS.forEach(function (block) {
+      var selected = focus.block && block.id === focus.block.id;
+      var live = block.id === nowId;
+      var past = clock.weekday !== "Sat" && clock.weekday !== "Sun" && clock.minutes >= block.end;
+      html += '<button type="button" data-pick="' + esc(block.id) + '" aria-pressed="' + (selected ? "true" : "false") + '"' + (past && !selected ? ' class="past"' : "") + '><span class="win">' + (live ? '<span class="dot"></span>' : "") + esc(block.window) + '</span><span class="name">' + esc(block.short) + "</span></button>";
+    });
+    html += "</nav>";
+    var closedNote = clock.weekday === "Sat" || clock.weekday === "Sun" ? "Weekend. Blocks resume Monday." : clock.minutes >= 17 * 60 ? "After 5:00. Desk closed." : "";
+    if (closedNote && !previewId) html += '<p class="note">' + esc(closedNote) + "</p>";
+
+    html += '<div class="grid">';
+    if (focus.kind !== "block" || !focus.block) {
+      var weekend = focus.kind === "weekend";
+      html += '<article class="card"><div class="pad"><p class="label">' + (weekend ? "Weekend" : "After 5:00") + '</p><h1>' + (weekend ? "Office closed" : "Desk closed") + "</h1><p class=\"window\" style=\"color:var(--ink)\">" + (weekend ? "No CSR blocks today. The desk picks up Monday with onboarding review." : "Exit check. " + esc(EXIT)) + "</p></div></article>";
+    } else {
+      var block = focus.block;
+      var left = previewId ? null : until(block.end, clock);
+      var bar = previewId ? 0 : progress(block, clock);
+      var tasks = actionable(block, focus.blockMonday);
+      var done = tasks.filter(function (task) { return checks.indexOf(task.id) >= 0; }).length;
+      var urgent = left != null && left < 15 * 60;
+      html += '<article class="card"><div class="meter" aria-hidden="true">' + (previewId ? "" : '<span style="width:' + (bar * 100) + '%"></span>') + '</div><div class="pad"><div class="row"><div class="row" style="gap:.5rem"><p class="label">' + (previewId ? "Preview" : "Now") + "</p>" + (block.manager ? '<span class="pill">Manager task</span>' : "") + "</div>" + (left == null ? "" : '<p class="left' + (urgent ? " hot" : "") + '">' + (left <= 0 ? "Ending" : esc(span(left)) + " left") + "</p>") + "</div>";
+      html += "<h1>" + esc(block.title) + "</h1><p class=\"window\">" + esc(block.window) + "</p>";
+      if (focus.next) {
+        var remain = !focus.nextWhen && !previewId ? Math.max(0, until(focus.next.start, clock)) : null;
+        html += '<div class="peek"><p class="label" style="color:var(--muted)">Up next' + (focus.nextWhen ? " · " + esc(focus.nextWhen) : "") + "</p>";
+        if (remain != null) html += remainHtml(remain, waitSpan(focus.next));
+        html += "<h2>" + esc(focus.next.title) + '</h2><p class="sub">' + esc(focus.next.window);
+        if (focus.next.phone) html += " · <span" + (restricted(focus.next.phone.mode) ? ' style="font-weight:600;color:var(--seal)"' : "") + ">" + esc(focus.next.phone.label) + "</span>";
+        html += "</p>";
+        if (focus.next.tasks[0]) html += '<p style="margin-top:.5rem;font-size:.875rem;line-height:1.6">' + esc(TAG[focus.next.tasks[0].tag] + " · " + focus.next.tasks[0].text) + "</p>";
+        html += "</div>";
+      }
+      if (block.phone) {
+        var open = !restricted(block.phone.mode);
+        html += '<div class="phone ' + (open ? "on" : "off") + '">' + phoneIcon(block.phone.mode, false) + '<div><p class="eyebrow">Phone</p><p class="say">' + esc(block.phone.label) + "</p></div></div>";
+      }
+      html += '<ul class="tasks">';
+      block.tasks.forEach(function (task) { html += taskHtml(task, focus.blockMonday, interactive, clock, !previewId); });
+      html += "</ul>";
+      if (interactive && tasks.length) html += '<p class="tally">' + (done === tasks.length ? "Block marked clear." : done + " of " + tasks.length + " marked") + "</p>";
+      if (block.id === "afternoon") html += '<p class="exit"><strong>Exit check. </strong>' + esc(EXIT) + "</p>";
+      html += "</div></article>";
+    }
+    if (focus.next) {
+      var next = focus.next;
+      var starts = !focus.nextWhen && !previewId ? Math.max(0, until(next.start, clock)) : null;
+      html += '<aside class="next" id="up-next"><p class="label" style="color:var(--muted)">' + (focus.nextWhen ? "Up next · " + esc(focus.nextWhen) : "Up next") + "</p>";
+      if (starts != null) html += remainHtml(starts, waitSpan(next));
+      html += "<h2>" + esc(next.title) + '</h2><p class="sub">' + esc(next.window) + "</p>";
+      if (next.phone) {
+        var shut = restricted(next.phone.mode);
+        html += '<p class="next-phone ' + (shut ? "restricted" : "open") + '">' + phoneIcon(next.phone.mode, true) + esc(next.phone.label) + "</p>";
+      }
+      if (next.manager) html += '<p class="mgr">Manager task</p>';
+      html += "<ul>";
+      next.tasks.forEach(function (task) {
+        var inactive = !!(task.mondayOnly && !focus.nextMonday);
+        html += '<li class="' + (inactive ? "dim" : "") + '"><strong>' + esc(inactive ? "Mon" : TAG[task.tag]) + " · </strong>" + esc(task.text) + "</li>";
+      });
+      html += "</ul></aside>";
+    }
+    html += "</div>";
+    html += '<details class="day"><summary>Whole day ' + CHEV + '</summary><div class="day-list">';
+    BLOCKS.forEach(function (block) {
+      var live = block.id === nowId;
+      var shown = focus.block && block.id === focus.block.id;
+      html += '<button type="button" data-pick="' + esc(block.id) + '"><span class="mark' + (live ? " live" : "") + '"></span><span class="slot">' + esc(block.window) + '</span><span><strong>' + esc(block.title) + (live ? " · now" : shown && previewId ? " · preview" : "") + "</strong>" + (block.phone ? '<span class="sub" style="display:block">' + esc(block.phone.label) + "</span>" : "") + "</span></button>";
+    });
+    html += '<p class="exit" style="border:0;margin:0"><strong>Exit check. </strong>' + esc(EXIT) + "</p></div></details>";
+    html += '<p class="foot">Sheet updated Oct 29, 2026. Times follow Eastern time.</p>';
+    var app = document.getElementById("app");
+    var open = document.querySelector(".day[open]") != null;
+    app.innerHTML = html;
+    if (open) {
+      var details = app.querySelector(".day");
+      if (details) details.open = true;
+    }
+    if (seen !== nowId) {
+      if (seen !== null) {
+        var name = nowId ? BLOCKS.filter(function (b) { return b.id === nowId; })[0].title : "Desk closed";
+        document.getElementById("live").textContent = "Now: " + name;
+      }
+      seen = nowId;
+    }
+  }
+
+  document.getElementById("app").addEventListener("click", function (event) {
+    var pick = event.target.closest("[data-pick]");
+    if (pick) {
+      var id = pick.getAttribute("data-pick");
+      var clock = readClock(new Date());
+      previewId = id === liveId(clock) ? null : (previewId === id ? null : id);
+      render(clock);
+      return;
+    }
+    if (event.target.closest("#back")) {
+      previewId = null;
+      render(readClock(new Date()));
+      return;
+    }
+    var box = event.target.closest("[data-id]");
+    if (box && ymd && !previewId) {
+      var id = box.getAttribute("data-id");
+      var next = checks.indexOf(id) >= 0 ? checks.filter(function (item) { return item !== id; }) : checks.concat([id]);
+      checks = next;
+      save(ymd, checks);
+      render(readClock(new Date()));
+    }
+  });
+
+  var lastDay = "";
+  function frame() {
+    var date = new Date();
+    var clock = readClock(date);
+    paintClock(date, clock);
+    if (clock.ymd !== lastDay || clock.seconds !== frame.second || previewId !== frame.preview) {
+      if (clock.ymd !== ymd) {
+        ymd = clock.ymd;
+        checks = load(ymd);
+      }
+      lastDay = clock.ymd;
+      frame.second = clock.seconds;
+      frame.preview = previewId;
+      render(clock);
+    }
+    if (!reduced) requestAnimationFrame(frame);
+  }
+  frame.second = -1;
+  frame.preview = null;
+  frame();
+  if (reduced) setInterval(function () { frame(); }, 1000);
+})();
+</script>
+</body>
+</html>
