@@ -234,7 +234,8 @@
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&":"&", "<":"<", ">":">", '"':""", "'":"&#39;" }[c];
+      var name = { "&": "amp", "<": "lt", ">": "gt", '"': "quot", "'": "#39" }[c];
+      return "&" + name + ";";
     });
   }
   function part(parts, type) {
