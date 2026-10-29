@@ -391,6 +391,14 @@
     return '<div class="remain"><div class="track" aria-hidden="true"><span style="width:' + (fraction * 100) + '%"></span></div><b>' + esc(span(remain)) + "</b></div>";
   }
 
+  function finishHtml() {
+    var cells = "";
+    for (var i = 0; i < 12; i++) {
+      cells += '<rect x="' + (52 + i * (256 / 12)) + '" y="34" width="' + (256 / 12) + '" height="22" fill="' + (i % 2 ? "#fcfaf6" : "#1b1714") + '" stroke="#1b1714" stroke-width="1"/>';
+    }
+    return '<article class="card"><div class="pad"><p class="label">After 5:00</p><svg viewBox="0 0 360 128" style="display:block;width:100%;max-width:32rem;margin-top:2rem" aria-hidden="true"><line x1="20" y1="108" x2="340" y2="108" stroke="#e3d8c8" stroke-width="1.5"/><line x1="52" y1="108" x2="52" y2="22" stroke="#1b1714" stroke-width="3" stroke-linecap="round"/><line x1="308" y1="108" x2="308" y2="22" stroke="#1b1714" stroke-width="3" stroke-linecap="round"/><circle cx="52" cy="20" r="4" fill="#1b1714"/><circle cx="308" cy="20" r="4" fill="#1b1714"/>' + cells + '<path d="M176 86l6 8 14-16" fill="none" stroke="#9d2c1f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><h1 style="margin-top:1.5rem">Done for today</h1><p class="window" style="color:var(--ink)">No blocks left on this sheet.</p><p class="exit"><strong>Exit check. </strong>' + esc(EXIT) + "</p></div></article>";
+  }
+
   function render(clock) {
     var focus = focusFor(clock);
     var nowId = liveId(clock);
@@ -408,13 +416,16 @@
       html += '<button type="button" data-pick="' + esc(block.id) + '" aria-pressed="' + (selected ? "true" : "false") + '"' + (past && !selected ? ' class="past"' : "") + '><span class="win">' + (live ? '<span class="dot"></span>' : "") + esc(block.window) + '</span><span class="name">' + esc(block.short) + "</span></button>";
     });
     html += "</nav>";
-    var closedNote = clock.weekday === "Sat" || clock.weekday === "Sun" ? "Weekend. Blocks resume Monday." : clock.minutes >= 17 * 60 ? "After 5:00. Desk closed." : "";
+    var closedNote = clock.weekday === "Sat" || clock.weekday === "Sun" ? "No blocks today." : clock.minutes >= 17 * 60 ? "Done for today." : "";
     if (closedNote && !previewId) html += '<p class="note">' + esc(closedNote) + "</p>";
 
     html += '<div class="grid">';
     if (focus.kind !== "block" || !focus.block) {
-      var weekend = focus.kind === "weekend";
-      html += '<article class="card"><div class="pad"><p class="label">' + (weekend ? "Weekend" : "After 5:00") + '</p><h1>' + (weekend ? "Office closed" : "Desk closed") + "</h1><p class=\"window\" style=\"color:var(--ink)\">" + (weekend ? "No CSR blocks today. The desk picks up Monday with onboarding review." : "Exit check. " + esc(EXIT)) + "</p></div></article>";
+      if (focus.kind === "weekend") {
+        html += '<article class="card"><div class="pad"><p class="label">Weekend</p><h1>Office closed</h1><p class="window" style="color:var(--ink)">No blocks today.</p></div></article>';
+      } else {
+        html += finishHtml();
+      }
     } else {
       var block = focus.block;
       var left = previewId ? null : until(block.end, clock);
@@ -424,7 +435,7 @@
       var urgent = left != null && left < 15 * 60;
       html += '<article class="card"><div class="meter" aria-hidden="true">' + (previewId ? "" : '<span style="width:' + (bar * 100) + '%"></span>') + '</div><div class="pad"><div class="row"><div class="row" style="gap:.5rem"><p class="label">' + (previewId ? "Preview" : "Now") + "</p>" + (block.manager ? '<span class="pill">Manager task</span>' : "") + "</div>" + (left == null ? "" : '<p class="left' + (urgent ? " hot" : "") + '">' + (left <= 0 ? "Ending" : esc(span(left)) + " left") + "</p>") + "</div>";
       html += "<h1>" + esc(block.title) + "</h1><p class=\"window\">" + esc(block.window) + "</p>";
-      if (focus.next) {
+      if (focus.next && !focus.nextWhen) {
         var remain = !focus.nextWhen && !previewId ? Math.max(0, until(focus.next.start, clock)) : null;
         html += '<div class="peek"><p class="label" style="color:var(--muted)">Up next' + (focus.nextWhen ? " · " + esc(focus.nextWhen) : "") + "</p>";
         if (remain != null) html += remainHtml(remain, waitSpan(focus.next));
@@ -445,7 +456,7 @@
       if (block.id === "afternoon") html += '<p class="exit"><strong>Exit check. </strong>' + esc(EXIT) + "</p>";
       html += "</div></article>";
     }
-    if (focus.next) {
+    if (focus.next && !focus.nextWhen) {
       var next = focus.next;
       var starts = !focus.nextWhen && !previewId ? Math.max(0, until(next.start, clock)) : null;
       html += '<aside class="next" id="up-next"><p class="label" style="color:var(--muted)">' + (focus.nextWhen ? "Up next · " + esc(focus.nextWhen) : "Up next") + "</p>";
