@@ -36,8 +36,10 @@
   :focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
   .wrap { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
   @media (min-width: 640px) { .wrap { padding: 2.5rem 2rem 4rem; } }
-  .header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 1.5rem; }
+  .header { display: block; }
   .kicker { font-size: 1.875rem; line-height: 1; font-family: var(--display); }
+  .board { margin-top: 1.5rem; display: grid; gap: 1rem; align-items: start; }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
   .clock-col { width: 9rem; }
   .clock-wrap {
     filter: drop-shadow(0 1px 1px rgba(48,42,34,.06)) drop-shadow(0 12px 16px rgba(48,42,34,.14));
@@ -54,8 +56,12 @@
   .rail .dot { width: .375rem; height: .375rem; border-radius: 999px; background: var(--seal); }
   .rail .name { display: block; margin-top: .125rem; font-size: .875rem; font-weight: 600; }
   .note { margin-top: .5rem; font-size: .875rem; color: var(--muted); }
-  .grid { margin-top: 1rem; display: grid; gap: 1rem; align-items: start; }
-  @media (min-width: 1024px) { .grid { grid-template-columns: minmax(0,1.7fr) minmax(16rem,.85fr); gap: 1.25rem; } .peek { display: none; } .next { position: sticky; top: 1.5rem; } }
+  .grid { margin-top: 0; }
+  @media (min-width: 1024px) {
+    .board { grid-template-columns: minmax(0,1.7fr) minmax(16rem,.85fr); gap: 1.25rem; }
+    .side { position: sticky; top: 1.5rem; }
+    .peek { display: none; }
+  }
   .card { min-width: 0; border-radius: 1rem; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
   .meter { height: .375rem; background: var(--line); }
   .meter > span { display: block; height: 100%; background: var(--seal); transition: width .9s linear; }
@@ -103,7 +109,7 @@
   .track { height: .5rem; min-width: 0; flex: 1; overflow: hidden; border-radius: 999px; background: var(--line); }
   .track > span { display: block; height: 100%; border-radius: 999px; background: var(--ink); transition: width .9s linear; }
   .remain b { flex: 0 0 auto; font-size: .75rem; font-variant-numeric: tabular-nums; }
-  .next { border-radius: 1rem; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--line); padding: 1.25rem; }
+  .next { width: 100%; border-radius: 1rem; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--line); padding: 1.25rem; }
   .next h2 { margin-top: .75rem; font-family: var(--display); font-size: 1.5rem; line-height: 1.2; font-weight: 560; }
   .sub { margin-top: .25rem; font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .next-phone { margin-top: .75rem; display: flex; align-items: center; gap: .5rem; font-size: .875rem; font-weight: 600; }
@@ -135,6 +141,11 @@
   <p class="sr" id="live" aria-live="polite"></p>
   <header class="header">
     <p class="kicker">CSR Desk</p>
+  </header>
+  <div id="lead"></div>
+  <div class="board">
+    <div id="app"></div>
+    <div class="side">
     <div class="clock-col">
       <div class="clock-wrap" id="face" role="img" aria-label="Eastern time">
         <svg class="clock" viewBox="0 0 400 400" aria-hidden="true">
@@ -181,8 +192,10 @@
       </div>
       <p class="date" id="date">Eastern</p>
     </div>
-  </header>
-  <div id="app"></div>
+    <div id="next"></div>
+    </div>
+  </div>
+  <div id="tail"></div>
 </main>
 <script>
 (function () {
@@ -418,8 +431,8 @@
     html += "</nav>";
     var closedNote = clock.weekday === "Sat" || clock.weekday === "Sun" ? "No blocks today." : clock.minutes >= 17 * 60 ? "Done for today." : "";
     if (closedNote && !previewId) html += '<p class="note">' + esc(closedNote) + "</p>";
-
-    html += '<div class="grid">';
+    var lead = html;
+    html = "";
     if (focus.kind !== "block" || !focus.block) {
       if (focus.kind === "weekend") {
         html += '<article class="card"><div class="pad"><p class="label">Weekend</p><h1>Office closed</h1><p class="window" style="color:var(--ink)">No blocks today.</p></div></article>';
@@ -456,38 +469,41 @@
       if (block.id === "afternoon") html += '<p class="exit"><strong>Exit check. </strong>' + esc(EXIT) + "</p>";
       html += "</div></article>";
     }
+    var nextHtml = "";
     if (focus.next && !focus.nextWhen) {
       var next = focus.next;
-      var starts = !focus.nextWhen && !previewId ? Math.max(0, until(next.start, clock)) : null;
-      html += '<aside class="next" id="up-next"><p class="label" style="color:var(--muted)">' + (focus.nextWhen ? "Up next · " + esc(focus.nextWhen) : "Up next") + "</p>";
-      if (starts != null) html += remainHtml(starts, waitSpan(next));
-      html += "<h2>" + esc(next.title) + '</h2><p class="sub">' + esc(next.window) + "</p>";
+      var starts = !previewId ? Math.max(0, until(next.start, clock)) : null;
+      nextHtml = '<aside class="next" id="up-next"><p class="label" style="color:var(--muted)">Up next</p>';
+      if (starts != null) nextHtml += remainHtml(starts, waitSpan(next));
+      nextHtml += "<h2>" + esc(next.title) + '</h2><p class="sub">' + esc(next.window) + "</p>";
       if (next.phone) {
         var shut = restricted(next.phone.mode);
-        html += '<p class="next-phone ' + (shut ? "restricted" : "open") + '">' + phoneIcon(next.phone.mode, true) + esc(next.phone.label) + "</p>";
+        nextHtml += '<p class="next-phone ' + (shut ? "restricted" : "open") + '">' + phoneIcon(next.phone.mode, true) + esc(next.phone.label) + "</p>";
       }
-      if (next.manager) html += '<p class="mgr">Manager task</p>';
-      html += "<ul>";
+      if (next.manager) nextHtml += '<p class="mgr">Manager task</p>';
+      nextHtml += "<ul>";
       next.tasks.forEach(function (task) {
         var inactive = !!(task.mondayOnly && !focus.nextMonday);
-        html += '<li class="' + (inactive ? "dim" : "") + '"><strong>' + esc(inactive ? "Mon" : TAG[task.tag]) + " · </strong>" + esc(task.text) + "</li>";
+        nextHtml += '<li class="' + (inactive ? "dim" : "") + '"><strong>' + esc(inactive ? "Mon" : TAG[task.tag]) + " · </strong>" + esc(task.text) + "</li>";
       });
-      html += "</ul></aside>";
+      nextHtml += "</ul></aside>";
     }
-    html += "</div>";
-    html += '<details class="day"><summary>Whole day ' + CHEV + '</summary><div class="day-list">';
+    var tail = '<details class="day"><summary>Whole day ' + CHEV + '</summary><div class="day-list">';
     BLOCKS.forEach(function (block) {
       var live = block.id === nowId;
       var shown = focus.block && block.id === focus.block.id;
-      html += '<button type="button" data-pick="' + esc(block.id) + '"><span class="mark' + (live ? " live" : "") + '"></span><span class="slot">' + esc(block.window) + '</span><span><strong>' + esc(block.title) + (live ? " · now" : shown && previewId ? " · preview" : "") + "</strong>" + (block.phone ? '<span class="sub" style="display:block">' + esc(block.phone.label) + "</span>" : "") + "</span></button>";
+      tail += '<button type="button" data-pick="' + esc(block.id) + '"><span class="mark' + (live ? " live" : "") + '"></span><span class="slot">' + esc(block.window) + '</span><span><strong>' + esc(block.title) + (live ? " · now" : shown && previewId ? " · preview" : "") + "</strong>" + (block.phone ? '<span class="sub" style="display:block">' + esc(block.phone.label) + "</span>" : "") + "</span></button>";
     });
-    html += '<p class="exit" style="border:0;margin:0"><strong>Exit check. </strong>' + esc(EXIT) + "</p></div></details>";
-    html += '<p class="foot">Sheet updated Oct 29, 2026. Times follow Eastern time.</p>';
+    tail += '<p class="exit" style="border:0;margin:0"><strong>Exit check. </strong>' + esc(EXIT) + "</p></div></details>";
+    tail += '<p class="foot">Sheet updated Oct 29, 2026. Times follow Eastern time.</p>';
     var app = document.getElementById("app");
     var open = document.querySelector(".day[open]") != null;
+    document.getElementById("lead").innerHTML = lead;
     app.innerHTML = html;
+    document.getElementById("next").innerHTML = nextHtml;
+    document.getElementById("tail").innerHTML = tail;
     if (open) {
-      var details = app.querySelector(".day");
+      var details = document.querySelector("#tail .day");
       if (details) details.open = true;
     }
     if (seen !== nowId) {
@@ -499,7 +515,7 @@
     }
   }
 
-  document.getElementById("app").addEventListener("click", function (event) {
+  document.querySelector("main").addEventListener("click", function (event) {
     var pick = event.target.closest("[data-pick]");
     if (pick) {
       var id = pick.getAttribute("data-pick");
